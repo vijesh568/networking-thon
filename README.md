@@ -1,2 +1,3 @@
 # networking-thon
-networking subsystem in C which accepts 2 connections and manages read and write
+Networking server infrastructure in C language
+Client test program in python
