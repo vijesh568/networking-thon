@@ -14,19 +14,20 @@
 #include <pthread.h>
 
 
-#define PORT "13323"
+#define MAX_VB_HANDLERS 5
 
 typedef enum vb_profile_channels_t{
 	MCHAI_CHANNEL = 0,
 	GRAPHICS_CHANNEL = 1,
 	OS_CHANNEL = 2,
-	STATIC_CHANNEL=3
+	STATIC_CHANNEL=3,
+	CLIENT_ACTIVITY_CHANNEL = 4
 }VB_PROFILE_CHANNEL_TYPE;
 
 
 typedef struct vb_server_thread_load_t{
 	int sockid;
-	int maxclients; /* Unused */
+	int maxclients; 
 	
 }vb_server_thread_payload;
 
@@ -36,7 +37,7 @@ typedef struct vb_common_thread_load_t{
 
 typedef struct vb_channel_configure_data_t{
 	VB_PROFILE_CHANNEL_TYPE channeltype;
-	int subtype;
+	int subtype; /* unused ? */
 	int option;
 }vb_channel_config_data;
 
@@ -50,24 +51,167 @@ typedef struct vb_client_conn_prop_t {
 }vb_conn_prop_st;
 
 
-vb_server_data_t server_gdt={0};
+/* gobal data */
 int run_server=1;/* 1 or 0*/
 int g_vb_clients = 0;
+int g_vb_server_config_status = -1;
 vb_conn_prop_st* g_vb_conn_list_head = NULL;
 vb_conn_prop_st* g_vb_conn_list_tail = NULL;
 
 
-void *get_in_addr(struct sockaddr *sa)
-{
-	    if (sa->sa_family == AF_INET) {
-		            return &(((struct sockaddr_in*)sa)->sin_addr);
-			        }
+void (*vb_status_handler[MAX_VB_HANDLERS]) (int operation);
 
-	        return &(((struct sockaddr_in6*)sa)->sin6_addr);
+/* Exposed to MW */
+int VISUALBOX_Register_Cb(VB_PROFILE_CHANNEL_TYPE ch_type, (void*)handler);
+int VISUALBOX_Configure_Server(int clients_supported, int socktype,int port);
+int VISUALBOX_Disable_Server(); /* not implemented */
+
+
+/* to be static */
+void* visualbox_get_in_addr(struct sockaddr *sa);
+int visualbox_read_data_from_cl(int sockfd, int len,char* buf,int *close_status);
+vb_conn_prop_st* visualbox_get_conn_list_slot();
+void visualbox_manage_conn_prop(int new_fd, vb_conn_prop_st* conn_st);
+void visualbox_process_config_data(vb_channel_config_data cfg_data, int *close_status);
+void visualbox_read_handler( void* payload);
+void visualbox_server_handler(void* payload);
+int visualbox_osport_create_thread(vb_common_thread_payload* payload, void* handler);
+
+int visualbox_start_server(int sockfd,int clients_supported);
+
+
+/*+++++++++++++++++*/
+/*+++++++++++++++++*/
+/*+++++++++++++++++*/
+
+/* API functions */
+/*+++++++++++++++++*/
+/*+++++++++++++++++*/
+/*+++++++++++++++++*/
+int VISUALBOX_Register_Cb(VB_PROFILE_CHANNEL_TYPE ch_type, (void*)handler)
+{
+	    int ret = -1;
+		if(ch_type < MAX_VB_HANDLERS && ch_type>=0)
+		{
+			vb_status_handler[ch_type] = handler;
+			ret =0;
+		}
+		
+		return ret;
+		
+}
+
+int VISUALBOX_Configure_Server(int clients_supported, int socktype,int port)
+{
+	struct addrinfo hints, *res, *temp;
+	int yes = 1;		/* to reuse addr */
+	int sin_size = 0;
+	struct sockaddr_storage their_addr;
+	memset(&hints, 0, sizeof(hints));
+	int sockfd,new_fd,ret;
+	char s[INET6_ADDRSTRLEN]={'\0'};
+
+	/* fill hints */
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_flags = AI_PASSIVE;
+	hints.ai_socktype = socktype;
+
+
+	if (getaddrinfo(NULL, port, &hints, &res)) {
+		perror("visualbox_configure_server ERROR! getaddrinfo failed on port %d",port);
+		return -1;
+	}
+
+	for (temp = res; temp != NULL; temp = temp->ai_next) {
+		sockfd =
+		    socket(temp->ai_family, temp->ai_socktype,
+			   temp->ai_protocol);
+		
+		if (sockfd == -1) {
+			perror("visualbox_configure_server WARN: socket() failed: ");
+			continue;
+		}
+
+		if (setsockopt
+		    (sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
+		     sizeof(int)) == -1) {
+			perror("visualbox_configure_server WARN: setscokopt failed : ");
+			     errno);
+			continue;
+		}
+		if (bind(sockfd, temp->ai_addr, temp->ai_addrlen) == -1) {
+			perror("visualbox_configure_server WARN : bind  failure ");
+			printf("visualbox_configure_server WARN binding the socket to port\n");
+	        inet_ntop(temp->ai_family, visualbox_get_in_addr((struct sockaddr *)temp->ai_addr),(char*) s, sizeof s);
+			printf("visualbox_configure_server INFO server:bind failed  from %s\n", s);
+			continue;
+		}
+		break;
+	}
+	if (temp == NULL) {
+		printf("visualbox_configure_server : ERROR!! bind failed for all available ports in localhost\n");
+		return -1;
+
+	}
+	freeaddrinfo(res);
+
+	ret = visualbox_start_server(sockfd,clients_supported);
+	if(ret == 0)
+	{
+		g_vb_server_config_status = 1;
+	}
+	
+	return ret;
+}
+
+
+/*
+INTERNAL FUNCTIONS */
+
+void* visualbox_get_in_addr(struct sockaddr *sa)
+{
+	  if (sa->sa_family == AF_INET) 
+	  {
+		  return &(((struct sockaddr_in*)sa)->sin_addr);
+
+	  }
+
+	  return &(((struct sockaddr_in6*)sa)->sin6_addr);
 			
 }
 
-int visualbox_read_data(int sockfd, int len);
+int visualbox_read_data_from_cl(int sockfd, int len,char* buf,int *close_status)
+{
+	int temp_len = len;
+	int read_retval =0;
+	int total = 0;
+	if( buf == NULL || len == 0)
+	{
+		return -1;
+	}
+	while(temp_len)
+	{
+		read_retval = recv(sockfd, buf+total, temp_len, MSG_WAITALL);
+		if (read_retval != 0)
+		{
+			temp_len = temp_len -read_retval;
+			total = total + read_retval;
+		}
+		else if (read_retval == 0)
+		{
+			*close_status = 0;
+			perror("visualbox_read_data_from_cl: WARN : conn closed by client");
+			return -1;
+		}
+		else
+		{
+			perror("visualbox_read_data_from_cl : ERROR");
+			return -1;
+		}
+	}
+	return 0;
+
+}
 
 vb_conn_prop_st* visualbox_get_conn_list_slot()
 {
@@ -91,7 +235,7 @@ void visualbox_manage_conn_prop(int new_fd, vb_conn_prop_st* conn_st)
 			conn_st->addr.sinaddr = (struct sockaddr_in6*)client_addr;
 	}
 	g_vb_clients++;
-	loc = vb_get_conn_list_slot();
+	loc = visualbox_get_conn_list_slot();
 	if (!loc)
 	{
 		g_vb_conn_list_head= conn_st;
@@ -106,9 +250,53 @@ void visualbox_manage_conn_prop(int new_fd, vb_conn_prop_st* conn_st)
 }
 
 
+void visualbox_process_config_data(vb_channel_config_data cfg_data, int *close_status)
+{
+	if(g_vb_server_config_status != 1)
+	{
+		return -1;
+	}
+	/* not handling sybtypes now */	
+	switch(cfg_data->channeltype)
+	{
+		case MCHAI_CHANNEL:
+		case GRAPHICS_CHANNEL: 
+		case OS_CHANNEL:
+		case STATIC_CHANNEL:,
+
+						if(vb_status_handler[cfg_data->channeltype])
+						{
+							(*vb_status_handler[cfg_data->channeltype])(cfg_data->option);
+						}
+						break;
+			
+		case CLIENT_ACTIVITY_CHANNEL:
+							*close_status = cfg_data->option;
+
+
+	}
+	
+}
+
+
 void visualbox_read_handler( void* payload)
 {
-
+	vb_conn_prop_st *conn_st = (vb_common_thread_payload*)payload->data;
+	int client_active = 1;
+	int ret;
+	vb_channel_config_data cfg_data;
+	
+	while(client_active)
+	{
+		ret = visualbox_read_data_from_cl(conn_st->fd,sizeof(vb_channel_config_data),(char*)&cfg_data,&client_active);
+		if (ret == 0)
+		{
+			visualbox_process_config_data(cfg_data,&client_active);
+			
+		}
+	
+	}
+	return ;
 
 
 }
@@ -209,66 +397,6 @@ int visualbox_start_server(int sockfd,int clients_supported)
 
 	return ret;
 
-
-}
-
-
-int VISUALBOX_Configure_Server(int clients_supported, int socktype,int port)
-{
-	struct addrinfo hints, *res, *temp;
-	int yes = 1;		/* to reuse addr */
-	int sin_size = 0;
-	struct sockaddr_storage their_addr;
-	memset(&hints, 0, sizeof(hints));
-	int sockfd,new_fd;
-	char s[INET6_ADDRSTRLEN]={'\0'};
-
-	/* fill hints */
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_flags = AI_PASSIVE;
-	hints.ai_socktype = socktype;
-
-
-	if (getaddrinfo(NULL, port, &hints, &res)) {
-		perror("visualbox_configure_server ERROR! getaddrinfo failed on port %d",port);
-		return -1;
-	}
-
-	for (temp = res; temp != NULL; temp = temp->ai_next) {
-		sockfd =
-		    socket(temp->ai_family, temp->ai_socktype,
-			   temp->ai_protocol);
-		
-		if (sockfd == -1) {
-			perror("visualbox_configure_server WARN: socket() failed: ");
-			continue;
-		}
-
-		if (setsockopt
-		    (sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
-		     sizeof(int)) == -1) {
-			perror("visualbox_configure_server WARN: setscokopt failed : ");
-			     errno);
-			continue;
-		}
-		if (bind(sockfd, temp->ai_addr, temp->ai_addrlen) == -1) {
-			perror("visualbox_configure_server WARN : bind  failure ");
-			printf("visualbox_configure_server WARN binding the socket to port\n");
-	        inet_ntop(temp->ai_family, get_in_addr((struct sockaddr *)temp->ai_addr),(char*) s, sizeof s);
-			printf("visualbox_configure_server INFO server:bind failed  from %s\n", s);
-			continue;
-		}
-		break;
-	}
-	if (temp == NULL) {
-		printf("visualbox_configure_server : ERROR!! bind failed for all available ports in localhost\n");
-		return -1;
-
-	}
-	freeaddrinfo(res);
-
-	return visualbox_start_server(sockfd,clients_supported);
-	
 
 }
 
