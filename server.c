@@ -184,7 +184,7 @@ int VISUALBOX_Sendto_Client(char* buf, int len)
 		conn_st = conn_st->next;
 
 	}
-
+	return 0;
 
 }
 
