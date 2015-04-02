@@ -295,6 +295,10 @@ void visualbox_read_handler( void* payload)
 			visualbox_process_config_data(cfg_data,&client_active);
 			
 		}
+		if(client_active == 0)
+		{
+			/* TODO:implement cleanup of conn_st  from the list*/
+		}
 	
 	}
 	return ;
