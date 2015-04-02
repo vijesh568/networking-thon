@@ -65,6 +65,7 @@ void (*vb_status_handler[MAX_VB_HANDLERS]) (int operation);
 int VISUALBOX_Register_Cb(VB_PROFILE_CHANNEL_TYPE ch_type, (void*)handler);
 int VISUALBOX_Configure_Server(int clients_supported, int socktype,int port);
 int VISUALBOX_Disable_Server(); /* not implemented */
+int VISUALBOX_Sendto_Client(char* buf, int len); /* not implemented */
 
 
 /* to be static */
