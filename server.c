@@ -65,8 +65,7 @@ void (*vb_status_handler[MAX_VB_HANDLERS]) (int operation);
 int VISUALBOX_Register_Cb(VB_PROFILE_CHANNEL_TYPE ch_type, (void*)handler);
 int VISUALBOX_Configure_Server(int clients_supported, int socktype,int port);
 int VISUALBOX_Disable_Server(); /* not implemented */
-int VISUALBOX_Sendto_Client(char* buf, int len); /* not implemented */
-
+int VISUALBOX_Sendto_Client(char* buf, int len); 
 
 /* to be static */
 void* visualbox_get_in_addr(struct sockaddr *sa);
@@ -92,7 +91,9 @@ int visualbox_start_server(int sockfd,int clients_supported);
 int VISUALBOX_Register_Cb(VB_PROFILE_CHANNEL_TYPE ch_type, (void*)handler)
 {
 	    int ret = -1;
-		if(ch_type < MAX_VB_HANDLERS && ch_type>=0)
+
+		
+		if(g_vb_server_config_status && ch_type < MAX_VB_HANDLERS && ch_type >= 0)
 		{
 			vb_status_handler[ch_type] = handler;
 			ret =0;
@@ -165,6 +166,27 @@ int VISUALBOX_Configure_Server(int clients_supported, int socktype,int port)
 	return ret;
 }
 
+int VISUALBOX_Sendto_Client(char* buf, int len)
+{
+
+	vb_conn_prop_st * conn_st;
+	conn_st = g_vb_conn_list_head;
+	/* send data to all clients */
+	
+	while(conn_st)
+	{
+	
+		if (send(conn_st->fd,buf,len) <= 0)
+		{
+
+			perror("VISUALBOX_Sendto_Client: ERROR");
+		}
+		conn_st = conn_st->next;
+
+	}
+
+
+}
 
 /*
 INTERNAL FUNCTIONS */
@@ -227,6 +249,8 @@ void visualbox_manage_conn_prop(int new_fd, vb_conn_prop_st* conn_st)
 	vb_conn_prop_st *loc = NULL;
 
 	conn_st->fd = new_fd;
+	conn_st->next = NULL;
+	
 	if(client_addr->ss_family == AF_INET)
 	{
 		conn_st->addr.sinaddr = (struct sockaddr_in*)client_addr;
@@ -253,10 +277,6 @@ void visualbox_manage_conn_prop(int new_fd, vb_conn_prop_st* conn_st)
 
 void visualbox_process_config_data(vb_channel_config_data cfg_data, int *close_status)
 {
-	if(g_vb_server_config_status != 1)
-	{
-		return -1;
-	}
 	/* not handling sybtypes now */	
 	switch(cfg_data->channeltype)
 	{
