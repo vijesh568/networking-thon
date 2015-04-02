@@ -283,16 +283,15 @@ void visualbox_process_config_data(vb_channel_config_data cfg_data, int *close_s
 		case MCHAI_CHANNEL:
 		case GRAPHICS_CHANNEL: 
 		case OS_CHANNEL:
-		case STATIC_CHANNEL:,
-
-						if(vb_status_handler[cfg_data->channeltype])
-						{
-							(*vb_status_handler[cfg_data->channeltype])(cfg_data->option);
-						}
-						break;
+		case STATIC_CHANNEL:
+				if(vb_status_handler[cfg_data->channeltype])
+				{
+						(*vb_status_handler[cfg_data->channeltype])(cfg_data->option);
+				}
+				break;
 			
 		case CLIENT_ACTIVITY_CHANNEL:
-							*close_status = cfg_data->option;
+			    *close_status = cfg_data->option;
 
 
 	}
