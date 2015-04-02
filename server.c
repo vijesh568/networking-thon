@@ -144,7 +144,6 @@ int VISUALBOX_Configure_Server(int clients_supported, int socktype,int port)
 		}
 		if (bind(sockfd, temp->ai_addr, temp->ai_addrlen) == -1) {
 			perror("visualbox_configure_server WARN : bind  failure ");
-			printf("visualbox_configure_server WARN binding the socket to port\n");
 	        inet_ntop(temp->ai_family, visualbox_get_in_addr((struct sockaddr *)temp->ai_addr),(char*) s, sizeof s);
 			printf("visualbox_configure_server INFO server:bind failed  from %s\n", s);
 			continue;
