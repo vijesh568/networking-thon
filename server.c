@@ -107,13 +107,14 @@ int VISUALBOX_Configure_Server(int clients_supported, int socktype,int port)
 {
 	struct addrinfo hints, *res, *temp;
 	int yes = 1;		/* to reuse addr */
-	int sin_size = 0;
-	struct sockaddr_storage their_addr;
-	memset(&hints, 0, sizeof(hints));
+
 	int sockfd,new_fd,ret;
 	char s[INET6_ADDRSTRLEN]={'\0'};
 
 	/* fill hints */
+
+	memset(&hints, 0, sizeof(hints));
+	
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_flags = AI_PASSIVE;
 	hints.ai_socktype = socktype;
