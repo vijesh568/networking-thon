@@ -12,7 +12,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <pthread.h>
-
+#include <assert.h>
 
 #define MAX_VB_HANDLERS 5
 
@@ -62,8 +62,8 @@ vb_conn_prop_st* g_vb_conn_list_tail = NULL;
 void (*vb_status_handler[MAX_VB_HANDLERS]) (int operation);
 
 /* Exposed to Application */
-int VISUALBOX_Register_Cb(VB_PROFILE_CHANNEL_TYPE ch_type, (void*)handler);
-int VISUALBOX_Configure_Server(int clients_supported, int socktype,int port);
+int VISUALBOX_Register_Cb(VB_PROFILE_CHANNEL_TYPE ch_type, void* handler);
+int VISUALBOX_Configure_Server(int clients_supported, int socktype,char* port);
 int VISUALBOX_Disable_Server(); /* not implemented */
 int VISUALBOX_Sendto_Client(char* buf, int len); 
 
@@ -71,8 +71,8 @@ int VISUALBOX_Sendto_Client(char* buf, int len);
 void* visualbox_get_in_addr(struct sockaddr *sa);
 int visualbox_read_data_from_cl(int sockfd, int len,char* buf,int *close_status);
 vb_conn_prop_st* visualbox_get_conn_list_slot();
-void visualbox_manage_conn_prop(int new_fd, vb_conn_prop_st* conn_st);
-void visualbox_process_config_data(vb_channel_config_data cfg_data, int *close_status);
+void visualbox_manage_conn_prop(struct sockaddr_storage* client_addr,int new_fd, vb_conn_prop_st* conn_st);
+void visualbox_process_config_data(vb_channel_config_data* cfg_data, int *close_status);
 void visualbox_read_handler( void* payload);
 void visualbox_server_handler(void* payload);
 int visualbox_osport_create_thread(vb_common_thread_payload* payload, void* handler);
@@ -88,7 +88,7 @@ int visualbox_start_server(int sockfd,int clients_supported);
 /*+++++++++++++++++*/
 /*+++++++++++++++++*/
 /*+++++++++++++++++*/
-int VISUALBOX_Register_Cb(VB_PROFILE_CHANNEL_TYPE ch_type, (void*)handler)
+int VISUALBOX_Register_Cb(VB_PROFILE_CHANNEL_TYPE ch_type, void* handler)
 {
 	    int ret = -1;
 
@@ -103,7 +103,7 @@ int VISUALBOX_Register_Cb(VB_PROFILE_CHANNEL_TYPE ch_type, (void*)handler)
 		
 }
 
-int VISUALBOX_Configure_Server(int clients_supported, int socktype,int port)
+int VISUALBOX_Configure_Server(int clients_supported, int socktype,char* port)
 {
 	struct addrinfo hints, *res, *temp;
 	int yes = 1;		/* to reuse addr */
@@ -121,7 +121,7 @@ int VISUALBOX_Configure_Server(int clients_supported, int socktype,int port)
 
 
 	if (getaddrinfo(NULL, port, &hints, &res)) {
-		perror("visualbox_configure_server ERROR! getaddrinfo failed on port %d",port);
+		perror("visualbox_configure_server ERROR! getaddrinfo failed on port");
 		return -1;
 	}
 
@@ -139,7 +139,6 @@ int VISUALBOX_Configure_Server(int clients_supported, int socktype,int port)
 		    (sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
 		     sizeof(int)) == -1) {
 			perror("visualbox_configure_server WARN: setscokopt failed : ");
-			     errno);
 			continue;
 		}
 		if (bind(sockfd, temp->ai_addr, temp->ai_addrlen) == -1) {
@@ -176,7 +175,7 @@ int VISUALBOX_Sendto_Client(char* buf, int len)
 	while(conn_st)
 	{
 	
-		if (send(conn_st->fd,buf,len) <= 0)
+		if (send(conn_st->fd,buf,len,0) <= 0)
 		{
 
 			perror("VISUALBOX_Sendto_Client: ERROR");
@@ -243,7 +242,7 @@ vb_conn_prop_st* visualbox_get_conn_list_slot()
 
 }
 
-void visualbox_manage_conn_prop(int new_fd, vb_conn_prop_st* conn_st)
+void visualbox_manage_conn_prop(struct sockaddr_storage* client_addr,int new_fd, vb_conn_prop_st* conn_st)
 {
 
 	vb_conn_prop_st *loc = NULL;
@@ -257,7 +256,7 @@ void visualbox_manage_conn_prop(int new_fd, vb_conn_prop_st* conn_st)
 	}
 	else if(client_addr->ss_family = AF_INET6)
 	{
-			conn_st->addr.sinaddr = (struct sockaddr_in6*)client_addr;
+			conn_st->addr.sin6addr = (struct sockaddr_in6*)client_addr;
 	}
 	g_vb_clients++;
 	loc = visualbox_get_conn_list_slot();
@@ -275,7 +274,7 @@ void visualbox_manage_conn_prop(int new_fd, vb_conn_prop_st* conn_st)
 }
 
 
-void visualbox_process_config_data(vb_channel_config_data cfg_data, int *close_status)
+void visualbox_process_config_data(vb_channel_config_data* cfg_data, int *close_status)
 {
 	/* not handling sybtypes now */	
 	switch(cfg_data->channeltype)
@@ -301,7 +300,7 @@ void visualbox_process_config_data(vb_channel_config_data cfg_data, int *close_s
 
 void visualbox_read_handler( void* payload)
 {
-	vb_conn_prop_st *conn_st = (vb_common_thread_payload*)payload->data;
+	vb_conn_prop_st *conn_st = ((vb_common_thread_payload*)payload)->data;
 	int client_active = 1;
 	int ret;
 	vb_channel_config_data cfg_data;
@@ -311,7 +310,7 @@ void visualbox_read_handler( void* payload)
 		ret = visualbox_read_data_from_cl(conn_st->fd,sizeof(vb_channel_config_data),(char*)&cfg_data,&client_active);
 		if (ret == 0)
 		{
-			visualbox_process_config_data(cfg_data,&client_active);
+			visualbox_process_config_data(&cfg_data,&client_active);
 			
 		}
 		if(client_active == 0)
@@ -334,7 +333,7 @@ void visualbox_server_handler(void* payload)
 	int socketfd;
 	
 	vb_conn_prop_st *conn_st = NULL;
-	vb_common_thread_payload *payload = NULL;
+	vb_common_thread_payload *pload = (vb_common_thread_payload*)malloc(sizeof(vb_common_thread_payload));
 
 	vb_common_thread_payload *load = (vb_common_thread_payload*)payload;
 	vb_server_thread_payload *data = (vb_server_thread_payload*)load->data;
@@ -349,7 +348,7 @@ void visualbox_server_handler(void* payload)
 		 printf("visualbox_server_handler : INFO Listening\n");
 		 if (listen(socketfd, data->maxclients) == -1) {
 			 perror("visualbox_server_handler :Error listening to socket");
-			 return -1;
+			 return ;
 		 }
 		
 		 while(run_server)
@@ -357,18 +356,18 @@ void visualbox_server_handler(void* payload)
 				sin_size = sizeof (struct sockaddr_storage);
 				client_addr = (struct sockaddr_storage*)malloc(sizeof(struct sockaddr_storage));
 				
-				new_fd = accept(socketfd, (struct sockaddr *) &client_addr,sin_size);
+				new_fd = accept(socketfd, (struct sockaddr *) client_addr,&sin_size);
 				if (new_fd == -1) {
 					perror("visualbox_server_handler : ERROR! in accept");
 					continue;
 				}
 			
-		     	conn_st = (vb_conn_prop_st*)malloc(sizeof(vb_conn_prop_st));
+           		     	conn_st = (vb_conn_prop_st*)malloc(sizeof(vb_conn_prop_st));
 
-				visualbox_manage_conn_prop(new_fd,conn_st);
+				visualbox_manage_conn_prop(client_addr,new_fd,conn_st);
 				
-				payload->data = (void*)conn_st;
-				ret = visualbox_osport_create_thread(payload,(void*)visualbox_read_handler);
+				pload->data = (void*)conn_st;
+				ret = visualbox_osport_create_thread(pload,(void*)visualbox_read_handler);
 				
 		
 		 }
@@ -377,7 +376,7 @@ void visualbox_server_handler(void* payload)
 
 
 		}
-		return 0;	       
+		return ;	       
 }
 	
 
