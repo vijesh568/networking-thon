@@ -54,7 +54,7 @@ typedef struct vb_client_conn_prop_t {
 /* gobal data */
 int run_server=1;/* 1 or 0*/
 int g_vb_clients = 0;
-int g_vb_server_config_status = -1;
+int g_vb_server_config_status = 0;
 vb_conn_prop_st* g_vb_conn_list_head = NULL;
 vb_conn_prop_st* g_vb_conn_list_tail = NULL;
 
@@ -159,7 +159,12 @@ int VISUALBOX_Configure_Server(int clients_supported, int socktype,char* port)
 	ret = visualbox_start_server(sockfd,clients_supported);
 	if(ret == 0)
 	{
+		printf("Server started\n");
 		g_vb_server_config_status = 1;
+	}
+	else
+	{
+		printf("Error starting server\n");
 	}
 	
 	return ret;
@@ -171,7 +176,13 @@ int VISUALBOX_Sendto_Client(char* buf, int len)
 	vb_conn_prop_st * conn_st;
 	conn_st = g_vb_conn_list_head;
 	/* send data to all clients */
+
+	if(g_vb_server_config_status != 1){
+		printf("server not configured yet\n");
+		return 1;
+	}
 	
+//	printf("VISUALBOX_Sendto_Client::: writing data\n");
 	while(conn_st)
 	{
 	
@@ -181,9 +192,9 @@ int VISUALBOX_Sendto_Client(char* buf, int len)
 			perror("VISUALBOX_Sendto_Client: ERROR");
 		}
 		conn_st = conn_st->next;
-
+		return 0;
 	}
-	return 0;
+	return -1;
 
 }
 
@@ -213,7 +224,9 @@ int visualbox_read_data_from_cl(int sockfd, int len,char* buf,int *close_status)
 	}
 	while(temp_len)
 	{
+		printf("Waiting on recv\n");
 		read_retval = recv(sockfd, buf+total, temp_len, MSG_WAITALL);
+		printf("Waiting on recv end\n");
 		if (read_retval != 0)
 		{
 			temp_len = temp_len -read_retval;
@@ -361,7 +374,7 @@ void visualbox_server_handler(void* payload)
 					perror("visualbox_server_handler : ERROR! in accept");
 					continue;
 				}
-			
+				printf("visualbox_Server_handler: bnew connection accepted\n");
            		     	conn_st = (vb_conn_prop_st*)malloc(sizeof(vb_conn_prop_st));
 
 				visualbox_manage_conn_prop(client_addr,new_fd,conn_st);
@@ -393,7 +406,7 @@ int visualbox_osport_create_thread(vb_common_thread_payload* payload, void* hand
 		
 	}
 
-	return thread_id;
+	return 0;
 	
 }
 int visualbox_start_server(int sockfd,int clients_supported)
@@ -418,7 +431,7 @@ int visualbox_start_server(int sockfd,int clients_supported)
 	
 	ret = visualbox_osport_create_thread(payload,(void*)visualbox_server_handler);
 
-	return ret;
+	return 0;
 
 
 }

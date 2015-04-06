@@ -1,0 +1,46 @@
+CLIENT_ACTIVITY_CHANNEL	vb_server_handler.c	24
+GRAPHICS_CHANNEL	vb_server_handler.c	21
+MAX_VB_HANDLERS	vb_server_handler.c	17
+MCHAI_CHANNEL	vb_server_handler.c	20
+Mtest_vb_server_handler	test_vb_server_handler.c	/^int main()$/
+OS_CHANNEL	vb_server_handler.c	22
+STATIC_CHANNEL	vb_server_handler.c	23
+VB_PROFILE_CHANNEL_TYPE	vb_server_handler.c	25
+VISUALBOX_Configure_Server	vb_server_handler.c	/^int VISUALBOX_Configure_Server(int clients_support/
+VISUALBOX_Register_Cb	vb_server_handler.c	/^int VISUALBOX_Register_Cb(VB_PROFILE_CHANNEL_TYPE /
+VISUALBOX_Sendto_Client	vb_server_handler.c	/^int VISUALBOX_Sendto_Client(char* buf, int len)$/
+addr	vb_server_handler.c	49
+channeltype	vb_server_handler.c	39
+d	vb_serve.exe	2
+data	vb_server_handler.c	35
+fd	vb_server_handler.c	45
+g_vb_clients	vb_server_handler.c	56
+g_vb_conn_list_head	vb_server_handler.c	58
+g_vb_conn_list_tail	vb_server_handler.c	59
+g_vb_server_config_status	vb_server_handler.c	57
+maxclients	vb_server_handler.c	30
+next	vb_server_handler.c	50
+option	vb_server_handler.c	41
+run_server	vb_server_handler.c	55
+sin6addr	vb_server_handler.c	48
+sinaddr	vb_server_handler.c	47
+sockid	vb_server_handler.c	29
+subtype	vb_server_handler.c	40
+vb_channel_config_data	vb_server_handler.c	42
+vb_channel_configure_data_t	vb_server_handler.c	38
+vb_client_conn_prop_t	vb_server_handler.c	44
+vb_common_thread_load_t	vb_server_handler.c	34
+vb_common_thread_payload	vb_server_handler.c	36
+vb_conn_prop_st	vb_server_handler.c	51
+vb_profile_channels_t	vb_server_handler.c	19
+vb_server_thread_load_t	vb_server_handler.c	28
+vb_server_thread_payload	vb_server_handler.c	32
+visualbox_get_conn_list_slot	vb_server_handler.c	/^vb_conn_prop_st* visualbox_get_conn_list_slot()$/
+visualbox_get_in_addr	vb_server_handler.c	/^void* visualbox_get_in_addr(struct sockaddr *sa)$/
+visualbox_manage_conn_prop	vb_server_handler.c	/^void visualbox_manage_conn_prop(struct sockaddr_st/
+visualbox_osport_create_thread	vb_server_handler.c	/^int visualbox_osport_create_thread(vb_common_threa/
+visualbox_process_config_data	vb_server_handler.c	/^void visualbox_process_config_data(vb_channel_conf/
+visualbox_read_data_from_cl	vb_server_handler.c	/^int visualbox_read_data_from_cl(int sockfd, int le/
+visualbox_read_handler	vb_server_handler.c	/^void visualbox_read_handler( void* payload)$/
+visualbox_server_handler	vb_server_handler.c	/^void visualbox_server_handler(void* payload)$/
+visualbox_start_server	vb_server_handler.c	/^int visualbox_start_server(int sockfd,int clients_/
