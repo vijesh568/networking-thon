@@ -17,7 +17,7 @@
 
 struct type {
 	int a;
-	char buf[10];
+	char buf[12];
 };
 
 
@@ -32,7 +32,8 @@ int main()
 	strcpy(test.buf,"hihi");
 
 	ret = VISUALBOX_Configure_Server(1,SOCK_STREAM,"12323");
-	while(VISUALBOX_Sendto_Client((char*)&test,strlen(buf)));
+	printf("Size of test = %d\n",sizeof(test));
+	while(VISUALBOX_Sendto_Client((char*)&test,sizeof(test)));
 	printf("sent helloworld\n");
 	while(1);
 	return 0;
