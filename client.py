@@ -63,3 +63,6 @@ if __name__ == "__main__":
 	conthread.join()
 	parsethread.join()
 	s.close
+
+def printhelloworld():
+    print "helloworld"
