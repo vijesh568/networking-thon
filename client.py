@@ -24,6 +24,7 @@ class ConnectionThread(threading.Thread):
 			if (self.num == 10):
 				print "Data type is 10"
 				self.buf=self.sockID.recv(self.len)
+				print "buffer received"+self.buf
 				dataobj = DataObject(10,0,self.len,self.buf)
 			self.qID.put(dataobj)
 			time.sleep(3)
@@ -37,8 +38,8 @@ class ParserThread(threading.Thread):
 	def run(self):
 		while True:
 			mydata = self.qID.get()
-			print "ParserTHread data:", +mydata.buf.tostring()
-			print "ParserThread length: "+mydata.len
+			print "parserThread data : ",mydata.buf.decode("utf-8")
+			print "ParserThread length: ",mydata.len
 			time.sleep(3)
 
 class DataObject():
@@ -46,9 +47,7 @@ class DataObject():
 		self.type = type
 		self.ts = stamp
 		self.len = len
-		self.buf = array.array('c')
-		for ch in data:
-			self.buf.append(ch)
+		self.buf = data
 		
 		
 	
