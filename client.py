@@ -2,7 +2,7 @@
 
 import socket
 import struct
-from threading 
+import threading 
 import time
 
 class ReaderThread(threading.Thread):
@@ -24,4 +24,6 @@ if __name__ == "__main__":
 	port = raw_input("Enter server port number: ")
 	s.connect((servername,12323));
 	rdthread = ReaderThread(1,s)
+	rdthread.start()
+	rdthread.join()
 	s.close
