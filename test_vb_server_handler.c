@@ -17,6 +17,7 @@
 
 struct type {
 	int a;
+	int len;
 	char buf[12];
 };
 
@@ -28,7 +29,8 @@ int main()
 	char *buf ="helloworld";
 	struct type test;
 	test.a =10;
-	memset(test.buf,'\0',10);
+	test.len = 4;
+	memset(test.buf,'\0',12);
 	strcpy(test.buf,"hihi");
 
 	ret = VISUALBOX_Configure_Server(1,SOCK_STREAM,"12323");
